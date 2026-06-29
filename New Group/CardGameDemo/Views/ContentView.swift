@@ -11,23 +11,27 @@ import SwiftUI
 struct ContentView: View {
 
     @StateObject private var viewModel = GameViewModel()
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
+            combatLog
 
-            opponentHeader
+            turnStatus
 
             gameBoard
 
             turnButtons
 
-            combatLog
-
             playerHand
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 24)
         .background(Color(.systemGroupedBackground))
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            topHeader
+        }
         .alert(item: $viewModel.gameResult) { result in
             Alert(
                 title: Text(result.title),
@@ -41,9 +45,56 @@ struct ContentView: View {
             )
         }
     }
+    
+    private var topHeader: some View {
+        ZStack {
+            VStack(spacing: 4) {
+                Text("Opponent")
+                    .font(.title3)
+                    .fontWeight(.bold)
+
+                HStack(spacing: 26) {
+                    Label(
+                        "\(viewModel.opponentHand.count)",
+                        systemImage: "rectangle.stack"
+                    )
+
+                    Label(
+                        "\(viewModel.opponentDeck.count)",
+                        systemImage: "square.stack.3d.up"
+                    )
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(Color(.secondarySystemGroupedBackground))
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            Color(.systemGroupedBackground)
+        )
+    }
 
     private var opponentHeader: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Text("Opponent")
                 .font(.title3)
                 .fontWeight(.bold)
@@ -61,21 +112,37 @@ struct ContentView: View {
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private var turnStatus: some View {
+        HStack {
+            Text(
+                viewModel.turn == 0
+                ? "Setup"
+                : "Turn \(viewModel.turn)"
+            )
+            .font(.title2)
+            .fontWeight(.bold)
 
-            HStack {
-                Text(viewModel.turn == 0 ? "Setup" : "Turn \(viewModel.turn)")
-                    .font(.title2)
-                    .fontWeight(.bold)
+            Spacer()
 
-                Spacer()
-
-                HStack(spacing: 5) {
+            HStack(spacing: 4) {
+                ForEach(
+                    0..<viewModel.energy,
+                    id: \.self
+                ) { _ in
                     Image(systemName: "bolt.fill")
-                    Text("\(viewModel.energy)")
+                        .foregroundStyle(.yellow)
                 }
-                .font(.title2)
-                .fontWeight(.bold)
+
+                if viewModel.energy == 0 {
+                    Text("0")
+                        .foregroundStyle(.secondary)
+                }
             }
+            .font(.title3)
         }
     }
 
@@ -109,16 +176,14 @@ struct ContentView: View {
                     let card = cards[index]
 
                     if isPlayer {
-                        Button {
+                        boardCard(
+                            card,
+                            isSelected:
+                                viewModel.selectedPlayerCard?.id == card.id
+                        )
+                        .onTapGesture {
                             viewModel.togglePlayerCard(card)
-                        } label: {
-                            boardCard(
-                                card,
-                                isSelected:
-                                    viewModel.selectedPlayerCard?.id == card.id
-                            )
                         }
-                        .buttonStyle(.plain)
                         .popover(
                             isPresented: Binding(
                                 get: {
@@ -198,34 +263,53 @@ struct ContentView: View {
                     .opacity(viewModel.energy < move.cost ? 0.45 : 1)
                 }
             }
-            if viewModel.isLeftmostCard(card) &&
-                viewModel.playerBoard.count >= 2 {
+            if let cardIndex =
+                viewModel.playerBoardIndex(for: card) {
 
-                Divider()
+                if cardIndex < viewModel.playerBoard.count - 1 {
+                    Divider()
 
-                Button {
-                    viewModel.mergeLeftmostCards()
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.triangle.merge")
+                    Button {
+                        viewModel.mergeCards(
+                            at: cardIndex
+                        )
+                    } label: {
+                        HStack {
+                            Image(
+                                systemName:
+                                    "arrow.triangle.merge"
+                            )
 
-                        Text("Merge with next card")
+                            Text("Merge with next card")
 
-                        Spacer()
+                            Spacer()
 
-                        energySymbols(for: 1)
+                            energySymbols(for: 1)
+                        }
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(
+                                cornerRadius: 12
+                            )
+                            .fill(
+                                Color.purple.opacity(0.12)
+                            )
+                        )
                     }
-                    .padding(10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.purple.opacity(0.12))
+                    .buttonStyle(.plain)
+                    .disabled(
+                        !viewModel.canMergeCards(
+                            at: cardIndex
+                        )
+                    )
+                    .opacity(
+                        viewModel.canMergeCards(
+                            at: cardIndex
+                        )
+                        ? 1
+                        : 0.45
                     )
                 }
-                .buttonStyle(.plain)
-                .disabled(!viewModel.canMergeLeftmostCards)
-                .opacity(
-                    viewModel.canMergeLeftmostCards ? 1 : 0.45
-                )
             }
         }
         .padding()
@@ -235,93 +319,23 @@ struct ContentView: View {
         _ card: GameCard,
         isSelected: Bool
     ) -> some View {
-        VStack(spacing: 7) {
-
-            HStack {
-                HStack(spacing: 3) {
-                    Image(systemName: "heart.fill")
-
-                    Text("\(card.health)/\(card.maxHealth)")
-                }
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(healthColor(for: card))
-
-                Spacer()
-            }
-
-            Text(card.name)
-                .font(.headline)
-                .fontWeight(.bold)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Spacer(minLength: 2)
-
-            ForEach(card.moves) { move in
-                HStack(spacing: 5) {
-                    Text(move.name)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-
-                    Spacer(minLength: 2)
-
-                    HStack(spacing: 2) {
-                        Image(systemName: "burst.fill")
-                            .foregroundStyle(.red)
-
-                        Text("\(move.damage)")
-                            .fontWeight(.semibold)
-                    }
-
-                    energySymbols(for: move.cost)
-                }
-                .font(.caption2)
-            }
-
-            Spacer(minLength: 2)
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity)
-        .frame(height: 145)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    isSelected
-                    ? Color.blue.opacity(0.20)
-                    : Color(.secondarySystemGroupedBackground)
-                )
+        CardView(
+            card: card,
+            isSelected: isSelected,
+            showsQueuedMove: viewModel.hasPlannedAttack(for: card),
+            width: nil,
+            height: 145,
+            usesCompactMoveLayout: true
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    isSelected ? Color.blue : Color.blue.opacity(0.55),
-                    lineWidth: isSelected ? 3 : 1.5
-                )
-        }
-        .overlay(alignment: .topTrailing) {
-            if viewModel.hasPlannedAttack(for: card) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(.green)
-                    .background(
-                        Circle()
-                            .fill(Color.white)
-                    )
-                    .padding(7)
-            }
-        }
         .scaleEffect(
             viewModel.attackingCardID == card.id
-                ? 1.08
-                : 1
+            ? 1.08
+            : 1
         )
         .offset(
             y: viewModel.attackingCardID == card.id
-                ? -10
-                : 0
+            ? -10
+            : 0
         )
         .overlay {
             if viewModel.targetedCardID == card.id {
@@ -336,11 +350,6 @@ struct ContentView: View {
         .animation(
             .easeInOut(duration: 0.2),
             value: viewModel.targetedCardID
-        )
-        .shadow(
-            color: Color.black.opacity(0.08),
-            radius: 4,
-            y: 2
         )
     }
 
@@ -389,25 +398,85 @@ struct ContentView: View {
 
     @ViewBuilder
     private var combatLog: some View {
-        if !viewModel.lastAttackResults.isEmpty {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Last Turn")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Last Turn")
+                .font(.headline)
 
-                ForEach(viewModel.lastAttackResults) { result in
-                    Text(
-                        "\(result.attackerName) used \(result.moveName) on \(result.targetName) for \(result.damage)"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(
+                    alignment: .leading,
+                    spacing: 5
+                ) {
+                    if viewModel.lastAttackResults.isEmpty &&
+                        viewModel.lastAbilityMessages.isEmpty {
+
+                        Text("No actions yet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: .leading
+                            )
+                    }
+
+                    ForEach(
+                        viewModel.lastAttackResults
+                    ) { result in
+                        Label {
+                            Text(
+                                "\(result.attackerName) used \(result.moveName) on \(result.targetName) for \(result.damage)"
+                            )
+                        } icon: {
+                            Image(systemName: "burst.fill")
+                                .foregroundStyle(.red)
+                        }
+                        .font(.caption)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                    }
+
+                    ForEach(
+                        Array(
+                            viewModel
+                                .lastAbilityMessages
+                                .enumerated()
+                        ),
+                        id: \.offset
+                    ) { _, message in
+                        Label {
+                            Text(message)
+                        } icon: {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(.purple)
+                        }
+                        .font(.caption)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                    }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
+            .scrollIndicators(.visible)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .frame(height: 90)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(
+                    Color(
+                        .secondarySystemGroupedBackground
+                    )
+                )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(
+                    Color.secondary.opacity(0.2)
+                )
         }
     }
 
@@ -415,78 +484,30 @@ struct ContentView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(viewModel.cardsInHand) { card in
-                    Button {
-                        viewModel.playCard(card)
-                    } label: {
-                        handCard(card)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!viewModel.canPlayCard)
-                    .opacity(viewModel.canPlayCard ? 1 : 0.45)
+                    handCard(card)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if viewModel.canPlayCard {
+                                viewModel.playCard(card)
+                            }
+                        }
+                        .opacity(viewModel.canPlayCard ? 1 : 0.45)
                 }
             }
             .padding(.vertical, 4)
         }
     }
 
-    private func handCard(_ card: GameCard) -> some View {
-        VStack(spacing: 8) {
-
-            HStack {
-                Image(systemName: "heart.fill")
-                    .foregroundStyle(.red)
-
-                Text("\(card.health)/\(card.maxHealth)")
-                    .fontWeight(.semibold)
-
-                Spacer()
-            }
-            .font(.caption)
-
-            Text(card.name)
-                .font(.headline)
-                .fontWeight(.bold)
-
-            Spacer()
-
-            ForEach(card.moves) { move in
-                HStack(spacing: 6) {
-                    Text(move.name)
-                        .font(.caption)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    HStack(spacing: 3) {
-                        Image(systemName: "burst.fill")
-                            .foregroundStyle(.red)
-
-                        Text("\(move.damage)")
-                    }
-                    .font(.caption)
-                    .fontWeight(.semibold)
-
-                    energySymbols(for: move.cost)
-                        .font(.caption)
-                }
-            }
-
-            Spacer()
-        }
-        .padding(12)
-        .frame(width: 145, height: 175)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.primary.opacity(0.35))
-        }
-        .shadow(
-            color: Color.black.opacity(0.08),
-            radius: 4,
-            y: 2
+    private func handCard(
+        _ card: GameCard
+    ) -> some View {
+        CardView(
+            card: card,
+            isSelected: false,
+            showsQueuedMove: viewModel.hasPlannedAttack(for: card),
+            width: 115,
+            height: 145,
+            usesCompactMoveLayout: false
         )
     }
 

@@ -88,6 +88,7 @@ final class GameViewModel: ObservableObject {
     @Published var plannedPlayerAttacks: [PlannedAttack] = []
     
     @Published var lastAttackResults: [AttackResult] = []
+    @Published var lastAbilityMessages: [String] = []
     
     @Published var gameResult: GameResult?
     
@@ -237,6 +238,9 @@ final class GameViewModel: ObservableObject {
                 isFree: true
             )
 
+            drawPlayerCard()
+            drawOpponentCard()
+
             turn = 1
             energy = 1
             hasTakenAction = false
@@ -272,7 +276,7 @@ final class GameViewModel: ObservableObject {
 
             await animateTurnActions()
 
-            applyAttackResults(results)
+            resolveCombat(results)
 
             plannedPlayerAttacks.removeAll()
             selectedPlayerCard = nil
@@ -293,6 +297,9 @@ final class GameViewModel: ObservableObject {
 
             hasTakenAction = false
             isResolvingTurn = false
+            
+            // I think this goes here
+            lastAbilityMessages.removeAll()
 
             saveTurnStart()
         }
@@ -516,7 +523,37 @@ final class GameViewModel: ObservableObject {
         var totalDamage: [UUID: Int] = [:]
 
         for result in results {
-            totalDamage[result.targetID, default: 0] += result.damage
+            if let target = playerBoard.first(
+                where: { $0.id == result.targetID }
+            ) {
+                let adjustedDamage =
+                    AbilityResolver.adjustedAttackDamage(
+                        result.damage,
+                        against: target
+                    )
+
+                let blockedDamage = result.damage - adjustedDamage
+
+                if blockedDamage > 0 {
+                    logAbility(
+                        cardName: target.name,
+                        abilityName: "Hard Shell",
+                        message: "blocked \(blockedDamage) damage"
+                    )
+                }
+
+                totalDamage[result.targetID, default: 0] += adjustedDamage
+            } else if let target = opponentBoard.first(
+                where: { $0.id == result.targetID }
+            ) {
+                let adjustedDamage =
+                    AbilityResolver.adjustedAttackDamage(
+                        result.damage,
+                        against: target
+                    )
+
+                totalDamage[result.targetID, default: 0] += adjustedDamage
+            }
         }
 
         for index in playerBoard.indices {
@@ -529,9 +566,6 @@ final class GameViewModel: ObservableObject {
             opponentBoard[index].health -= totalDamage[cardID, default: 0]
         }
 
-        playerBoard.removeAll { $0.health <= 0 }
-        opponentBoard.removeAll { $0.health <= 0 }
-
         if let selectedPlayerCard,
            !playerBoard.contains(where: {
                $0.id == selectedPlayerCard.id
@@ -540,8 +574,13 @@ final class GameViewModel: ObservableObject {
         }
     }
     
-    var canMergeLeftmostCards: Bool {
-        guard playerBoard.count >= 2 else {
+    func canMergeCards(
+        at leftIndex: Int
+    ) -> Bool {
+        let rightIndex = leftIndex + 1
+
+        guard playerBoard.indices.contains(leftIndex),
+              playerBoard.indices.contains(rightIndex) else {
             return false
         }
 
@@ -549,69 +588,88 @@ final class GameViewModel: ObservableObject {
             return false
         }
 
-        let firstCard = playerBoard[0]
-        let secondCard = playerBoard[1]
+        let leftCard = playerBoard[leftIndex]
+        let rightCard = playerBoard[rightIndex]
 
-        guard let firstPlayedTurn = firstCard.playedTurn,
-              let secondPlayedTurn = secondCard.playedTurn else {
+        guard let leftPlayedTurn = leftCard.playedTurn,
+              let rightPlayedTurn = rightCard.playedTurn else {
             return false
         }
 
-        guard firstPlayedTurn < turn,
-              secondPlayedTurn < turn else {
+        guard leftPlayedTurn < turn,
+              rightPlayedTurn < turn else {
             return false
         }
 
-        guard firstCard.componentCount + secondCard.componentCount <= 3 else {
+        guard leftCard.componentCount +
+                rightCard.componentCount <= 3 else {
             return false
         }
 
-        let firstHasPlannedMove = plannedPlayerAttacks.contains {
-            $0.attackerID == firstCard.id
+        let leftHasPlannedMove = plannedPlayerAttacks.contains {
+            $0.attackerID == leftCard.id
         }
 
-        let secondHasPlannedMove = plannedPlayerAttacks.contains {
-            $0.attackerID == secondCard.id
+        let rightHasPlannedMove = plannedPlayerAttacks.contains {
+            $0.attackerID == rightCard.id
         }
 
-        return !firstHasPlannedMove && !secondHasPlannedMove
+        return !leftHasPlannedMove &&
+               !rightHasPlannedMove
     }
     
-    func isLeftmostCard(_ card: GameCard) -> Bool {
-        playerBoard.first?.id == card.id
-    }
-    
-    func mergeLeftmostCards() {
-        guard gameResult == nil else {
-            return
-        }
-        guard canMergeLeftmostCards else {
+    func mergeCards(
+        at leftIndex: Int
+    ) {
+        guard canMergeCards(at: leftIndex) else {
             return
         }
 
-        let firstCard = playerBoard[0]
-        let secondCard = playerBoard[1]
+        let rightIndex = leftIndex + 1
+
+        let leftCard = playerBoard[leftIndex]
+        let rightCard = playerBoard[rightIndex]
 
         let combinedMoves = uniqueMoves(
-            firstCard.moves + secondCard.moves
+            leftCard.moves + rightCard.moves
         )
+
+        let combinedAbilities =
+            leftCard.abilities + rightCard.abilities
+
+        let combinedUsedAbilityIDs =
+            leftCard.usedAbilityIDs.union(
+                rightCard.usedAbilityIDs
+            )
 
         let mergedCard = GameCard(
-            name: "\(firstCard.name) + \(secondCard.name)",
-            health: firstCard.health + secondCard.health,
-            maxHealth: firstCard.maxHealth + secondCard.maxHealth,
+            name: "\(leftCard.name) + \(rightCard.name)",
+            health: leftCard.health + rightCard.health,
+            maxHealth:
+                leftCard.maxHealth + rightCard.maxHealth,
             moves: combinedMoves,
+            abilities: combinedAbilities,
             componentCount:
-                firstCard.componentCount + secondCard.componentCount,
-            playedTurn: turn
+                leftCard.componentCount +
+                rightCard.componentCount,
+            playedTurn: turn,
+            usedAbilityIDs: combinedUsedAbilityIDs
         )
 
-        playerBoard[0] = mergedCard
-        playerBoard.remove(at: 1)
+        playerBoard[leftIndex] = mergedCard
+        playerBoard.remove(at: rightIndex)
 
         energy -= 1
-        selectedPlayerCard = mergedCard
         hasTakenAction = true
+        selectedPlayerCard = mergedCard
+    }
+    
+    func playerBoardIndex(
+        for card: GameCard
+    ) -> Int? {
+        playerBoard.firstIndex {
+            $0.id == card.id
+        }
     }
     
     private func uniqueMoves(
@@ -701,4 +759,195 @@ final class GameViewModel: ObservableObject {
                 )
             }
     }
+    
+    private func logAbility(
+        cardName: String,
+        abilityName: String,
+        message: String
+    ) {
+        lastAbilityMessages.append(
+            "\(cardName)'s \(abilityName): \(message)"
+        )
+    }
+    
+    private func resolveCombat(
+        _ results: [AttackResult]
+    ) {
+        applyAttackResults(results)
+        applySpikes(results)
+        applyDeathBurst()
+        removeDefeatedCards()
+        applyEndTurnHealing()
+    }
+    
+    private func applyEndTurnHealing() {
+        for index in playerBoard.indices {
+            let healing = AbilityResolver.endTurnHealing(
+                for: playerBoard[index]
+            )
+
+            let oldHealth = playerBoard[index].health
+
+            playerBoard[index].health = min(
+                playerBoard[index].health + healing,
+                playerBoard[index].maxHealth
+            )
+
+            let actualHealing =
+                playerBoard[index].health - oldHealth
+
+            if actualHealing > 0 {
+                logAbility(
+                    cardName: playerBoard[index].name,
+                    abilityName: "Regenerate",
+                    message: "healed \(actualHealing) health"
+                )
+            }
+        }
+
+        for index in opponentBoard.indices {
+            let healing = AbilityResolver.endTurnHealing(
+                for: opponentBoard[index]
+            )
+
+            let oldHealth = opponentBoard[index].health
+
+            opponentBoard[index].health = min(
+                opponentBoard[index].health + healing,
+                opponentBoard[index].maxHealth
+            )
+
+            let actualHealing =
+                opponentBoard[index].health - oldHealth
+
+            if actualHealing > 0 {
+                logAbility(
+                    cardName: opponentBoard[index].name,
+                    abilityName: "Regenerate",
+                    message: "healed \(actualHealing) health"
+                )
+            }
+        }
+    }
+    
+    private func applySpikes(
+        _ results: [AttackResult]
+    ) {
+        var retaliationDamage: [UUID: Int] = [:]
+
+        for result in results {
+            guard let defender =
+                    playerBoard.first(where: {
+                        $0.id == result.targetID
+                    })
+                    ??
+                    opponentBoard.first(where: {
+                        $0.id == result.targetID
+                    }) else {
+                continue
+            }
+
+            let damage = AbilityResolver.retaliationDamage(
+                from: defender
+            )
+
+            guard damage > 0 else {
+                continue
+            }
+
+            retaliationDamage[result.attackerID, default: 0] += damage
+
+            logAbility(
+                cardName: defender.name,
+                abilityName: "Spikes",
+                message: "dealt \(damage) damage to \(result.attackerName)"
+            )
+        }
+
+        for index in playerBoard.indices {
+            playerBoard[index].health -=
+                retaliationDamage[playerBoard[index].id, default: 0]
+        }
+
+        for index in opponentBoard.indices {
+            opponentBoard[index].health -=
+                retaliationDamage[opponentBoard[index].id, default: 0]
+        }
+    }
+    
+    private func applyDeathBurst() {
+        let playerSnapshot = playerBoard
+        let opponentSnapshot = opponentBoard
+
+        var damageToPlayerCards: [UUID: Int] = [:]
+        var damageToOpponentCards: [UUID: Int] = [:]
+
+        for (index, card) in playerSnapshot.enumerated() {
+            guard card.health <= 0 else {
+                continue
+            }
+
+            let burstDamage = AbilityResolver.defeatDamage(
+                from: card
+            )
+
+            guard burstDamage > 0 else {
+                continue
+            }
+
+            guard opponentSnapshot.indices.contains(index) else {
+                continue
+            }
+
+            let target = opponentSnapshot[index]
+
+            damageToOpponentCards[target.id, default: 0] += burstDamage
+        }
+
+        for (index, card) in opponentSnapshot.enumerated() {
+            guard card.health <= 0 else {
+                continue
+            }
+
+            let burstDamage = AbilityResolver.defeatDamage(
+                from: card
+            )
+
+            guard burstDamage > 0 else {
+                continue
+            }
+
+            guard playerSnapshot.indices.contains(index) else {
+                continue
+            }
+
+            let target = playerSnapshot[index]
+
+            damageToPlayerCards[target.id, default: 0] += burstDamage
+        }
+
+        for index in playerBoard.indices {
+            let cardID = playerBoard[index].id
+            playerBoard[index].health -=
+                damageToPlayerCards[cardID, default: 0]
+        }
+
+        for index in opponentBoard.indices {
+            let cardID = opponentBoard[index].id
+            opponentBoard[index].health -=
+                damageToOpponentCards[cardID, default: 0]
+        }
+    }
+    
+    private func removeDefeatedCards() {
+        playerBoard.removeAll {
+            $0.health <= 0
+        }
+
+        opponentBoard.removeAll {
+            $0.health <= 0
+        }
+    }
+    
+    
 }

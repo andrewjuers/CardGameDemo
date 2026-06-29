@@ -11,7 +11,7 @@ import SwiftUI
 struct CardGameDemoApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HomeView()
         }
     }
 }

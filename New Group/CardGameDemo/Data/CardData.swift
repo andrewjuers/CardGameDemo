@@ -162,14 +162,200 @@ struct CardData {
             moves: [
                 Move(
                     name: "Claw",
-                    damage: 4,
+                    damage: 3,
                     cost: 1
                 ),
                 Move(
                     name: "Dive Bomb",
-                    damage: 7,
+                    damage: 5,
                     cost: 3
                 )
+            ]
+        ),
+        
+        // MARK: - 1 Cost Ability Cards
+
+        GameCard(
+            name: "Armadillo",
+            health: 7,
+            moves: [
+                Move(
+                    name: "Claw",
+                    damage: 1,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.hardShell
+            ]
+        ),
+
+        GameCard(
+            name: "Salamander",
+            health: 5,
+            moves: [
+                Move(
+                    name: "Tail Whip",
+                    damage: 2,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.regenerate
+            ]
+        ),
+
+        GameCard(
+            name: "Hedgehog",
+            health: 5,
+            moves: [
+                Move(
+                    name: "Tackle",
+                    damage: 2,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.spikes
+            ]
+        ),
+
+        GameCard(
+            name: "Firefly",
+            health: 4,
+            moves: [
+                Move(
+                    name: "Flash",
+                    damage: 2,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.deathBurst
+            ]
+        ),
+
+        // MARK: - 2 Cost Ability Cards
+
+        GameCard(
+            name: "Mole",
+            health: 8,
+            moves: [
+                Move(
+                    name: "Burrow Strike",
+                    damage: 3,
+                    cost: 2
+                )
+            ],
+            abilities: [
+                AbilityData.hardShell
+            ]
+        ),
+
+        GameCard(
+            name: "Axolotl",
+            health: 6,
+            moves: [
+                Move(
+                    name: "Water Snap",
+                    damage: 3,
+                    cost: 2
+                )
+            ],
+            abilities: [
+                AbilityData.regenerate
+            ]
+        ),
+
+        GameCard(
+            name: "Boar",
+            health: 7,
+            moves: [
+                Move(
+                    name: "Tusk Charge",
+                    damage: 3,
+                    cost: 2
+                )
+            ],
+            abilities: [
+                AbilityData.spikes
+            ]
+        ),
+
+        GameCard(
+            name: "Pufferfish",
+            health: 5,
+            moves: [
+                Move(
+                    name: "Spine Shot",
+                    damage: 4,
+                    cost: 2
+                )
+            ],
+            abilities: [
+                AbilityData.deathBurst
+            ]
+        ),
+
+        // MARK: - 3 Cost Ability Cards
+
+        GameCard(
+            name: "Pangolin",
+            health: 10,
+            moves: [
+                Move(
+                    name: "Rolling Slam",
+                    damage: 4,
+                    cost: 3
+                )
+            ],
+            abilities: [
+                AbilityData.hardShell
+            ]
+        ),
+
+        GameCard(
+            name: "Moose",
+            health: 9,
+            moves: [
+                Move(
+                    name: "Antler Rush",
+                    damage: 5,
+                    cost: 3
+                )
+            ],
+            abilities: [
+                AbilityData.regenerate
+            ]
+        ),
+
+        GameCard(
+            name: "Wolverine",
+            health: 8,
+            moves: [
+                Move(
+                    name: "Frenzy",
+                    damage: 5,
+                    cost: 3
+                )
+            ],
+            abilities: [
+                AbilityData.spikes
+            ]
+        ),
+
+        GameCard(
+            name: "Scorpion",
+            health: 7,
+            moves: [
+                Move(
+                    name: "Stinger",
+                    damage: 6,
+                    cost: 3
+                )
+            ],
+            abilities: [
+                AbilityData.deathBurst
             ]
         )
     ]
