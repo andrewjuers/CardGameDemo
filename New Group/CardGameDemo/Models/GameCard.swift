@@ -17,6 +17,8 @@ struct Move: Identifiable {
 struct GameCard: Identifiable {
     let id = UUID()
 
+    let cardID: CardID
+    
     let name: String
     var health: Int
     let maxHealth: Int
@@ -29,6 +31,7 @@ struct GameCard: Identifiable {
     var usedAbilityIDs: Set<UUID>
 
     init(
+        cardID: CardID,
         name: String,
         health: Int,
         maxHealth: Int? = nil,
@@ -38,6 +41,7 @@ struct GameCard: Identifiable {
         playedTurn: Int? = nil,
         usedAbilityIDs: Set<UUID> = []
     ) {
+        self.cardID = cardID
         self.name = name
         self.health = health
         self.maxHealth = maxHealth ?? health

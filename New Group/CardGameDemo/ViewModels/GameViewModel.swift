@@ -103,6 +103,10 @@ final class GameViewModel: ObservableObject {
     @Published var newlyPlayedCardID: UUID?
     @Published var mergingCardIDs: Set<UUID> = []
     
+    @Published var lastTurnEvents: [TurnEvent] = []
+
+    private var currentTurnEvents: [TurnEvent] = []
+    
     private var turnStartHasTakenAction = false
 
     private var turnStartPlannedAttacks: [PlannedAttack] = []
@@ -112,8 +116,12 @@ final class GameViewModel: ObservableObject {
     private var turnStartPlayerBoard: [GameCard] = []
     private var turnStartOpponentBoard: [GameCard] = []
     private var turnStartEnergy = 0
+    
+    private let customPlayerDeck: [GameCard]?
 
-    init() {
+    init(customPlayerDeck: [GameCard]? = nil) {
+        self.customPlayerDeck = customPlayerDeck
+
         setupGame()
         saveTurnStart()
     }
@@ -141,10 +149,23 @@ final class GameViewModel: ObservableObject {
     }
 
     func setupGame() {
-        let shuffledCards = CardData.allCards.shuffled()
+        let playerCards: [GameCard]
 
-        let playerCards = Array(shuffledCards.prefix(6))
-        let opponentCards = Array(shuffledCards.suffix(6))
+        if let customPlayerDeck {
+            playerCards = customPlayerDeck.shuffled()
+        } else {
+            playerCards = Array(
+                CardData.allCards
+                    .shuffled()
+                    .prefix(6)
+            )
+        }
+
+        let opponentCards = Array(
+            CardData.allCards
+                .shuffled()
+                .prefix(6)
+        )
 
         cardsInHand = Array(playerCards.prefix(3))
         playerDeck = Array(playerCards.dropFirst(3))
@@ -195,6 +216,10 @@ final class GameViewModel: ObservableObject {
 
             playerBoard.append(playedCard)
             cardsInHand.removeAll { $0.id == card.id }
+            logEvent(
+                type: .cardPlayed,
+                message: "You started with \(playedCard.name)"
+            )
             return
         }
 
@@ -206,6 +231,10 @@ final class GameViewModel: ObservableObject {
         cardsInHand.removeAll { $0.id == card.id }
         energy -= 1
         hasTakenAction = true
+        logEvent(
+            type: .cardPlayed,
+            message: "You played \(card.name)"
+        )
     }
 
     func undoTurn() {
@@ -241,6 +270,9 @@ final class GameViewModel: ObservableObject {
             drawPlayerCard()
             drawOpponentCard()
 
+            // Logging initial state
+            finishTurnLog()
+            
             turn = 1
             energy = 1
             hasTakenAction = false
@@ -252,6 +284,18 @@ final class GameViewModel: ObservableObject {
 
         Task {
             var opponentEnergy = turn
+            
+            if let mergeIndex = OpponentAI.chooseMergeIndex(
+                opponentBoard: opponentBoard,
+                playerBoard: playerBoard,
+                turn: turn,
+                energy: opponentEnergy
+            ) {
+                mergeOpponentCards(
+                    at: mergeIndex,
+                    using: &opponentEnergy
+                )
+            }
 
             playOpponentCard(
                 using: &opponentEnergy
@@ -272,11 +316,20 @@ final class GameViewModel: ObservableObject {
             )
 
             lastAttackResults = results
+            for result in results {
+                logEvent(
+                    type: .attack,
+                    message: "\(result.attackerName) used \(result.moveName) on \(result.targetName) for \(result.damage) damage"
+                )
+            }
             turnActions = makeAttackActions(from: results)
 
             await animateTurnActions()
 
             resolveCombat(results)
+            
+            // Logging turn
+            finishTurnLog()
 
             plannedPlayerAttacks.removeAll()
             selectedPlayerCard = nil
@@ -297,9 +350,6 @@ final class GameViewModel: ObservableObject {
 
             hasTakenAction = false
             isResolvingTurn = false
-            
-            // I think this goes here
-            lastAbilityMessages.removeAll()
 
             saveTurnStart()
         }
@@ -323,7 +373,15 @@ final class GameViewModel: ObservableObject {
             return
         }
 
-        guard let card = opponentHand.randomElement() else {
+        guard let cardID = OpponentAI.chooseCardToPlay(
+            from: opponentHand
+        ) else {
+            return
+        }
+
+        guard let cardIndex = opponentHand.firstIndex(
+            where: { $0.id == cardID }
+        ) else {
             return
         }
 
@@ -335,8 +393,19 @@ final class GameViewModel: ObservableObject {
             energy -= 1
         }
 
-        opponentBoard.append(card)
-        opponentHand.removeAll { $0.id == card.id }
+        var playedCard = opponentHand.remove(
+            at: cardIndex
+        )
+
+        playedCard.playedTurn = turn
+        opponentBoard.append(playedCard)
+
+        logEvent(
+            type: .cardPlayed,
+            message: isFree
+                ? "Opponent started with \(playedCard.name)"
+                : "Opponent played \(playedCard.name)"
+        )
     }
     
     private func drawPlayerCard() {
@@ -423,26 +492,17 @@ final class GameViewModel: ObservableObject {
     private func createOpponentAttacks(
         using energy: inout Int
     ) -> [PlannedAttack] {
-        var attacks: [PlannedAttack] = []
+        let attacks = OpponentAI.chooseAttacks(
+            from: opponentBoard,
+            against: playerBoard,
+            using: energy
+        )
 
-        for card in opponentBoard {
-            guard let move = card.moves.first else {
-                continue
-            }
-
-            guard energy >= move.cost else {
-                continue
-            }
-
-            attacks.append(
-                PlannedAttack(
-                    attackerID: card.id,
-                    move: move
-                )
-            )
-
-            energy -= move.cost
+        let totalCost = attacks.reduce(0) {
+            $0 + $1.move.cost
         }
+
+        energy -= totalCost
 
         return attacks
     }
@@ -643,6 +703,7 @@ final class GameViewModel: ObservableObject {
             )
 
         let mergedCard = GameCard(
+            cardID: .merged,
             name: "\(leftCard.name) + \(rightCard.name)",
             health: leftCard.health + rightCard.health,
             maxHealth:
@@ -662,6 +723,96 @@ final class GameViewModel: ObservableObject {
         energy -= 1
         hasTakenAction = true
         selectedPlayerCard = mergedCard
+        logEvent(
+            type: .merge,
+            message: "You merged \(leftCard.name) with \(rightCard.name)"
+        )
+    }
+    
+    private func canOpponentMergeCards(
+        at leftIndex: Int,
+        energy: Int
+    ) -> Bool {
+        let rightIndex = leftIndex + 1
+
+        guard opponentBoard.indices.contains(leftIndex),
+              opponentBoard.indices.contains(rightIndex) else {
+            return false
+        }
+
+        guard energy >= 1 else {
+            return false
+        }
+
+        let leftCard = opponentBoard[leftIndex]
+        let rightCard = opponentBoard[rightIndex]
+
+        guard let leftPlayedTurn = leftCard.playedTurn,
+              let rightPlayedTurn = rightCard.playedTurn else {
+            return false
+        }
+
+        guard leftPlayedTurn < turn,
+              rightPlayedTurn < turn else {
+            return false
+        }
+
+        return leftCard.componentCount +
+            rightCard.componentCount <= 3
+    }
+    
+    private func mergeOpponentCards(
+        at leftIndex: Int,
+        using energy: inout Int
+    ) {
+        guard canOpponentMergeCards(
+            at: leftIndex,
+            energy: energy
+        ) else {
+            return
+        }
+
+        let rightIndex = leftIndex + 1
+
+        let leftCard = opponentBoard[leftIndex]
+        let rightCard = opponentBoard[rightIndex]
+
+        let combinedMoves = uniqueMoves(
+            leftCard.moves + rightCard.moves
+        )
+
+        let combinedAbilities =
+            leftCard.abilities + rightCard.abilities
+
+        let combinedUsedAbilityIDs =
+            leftCard.usedAbilityIDs.union(
+                rightCard.usedAbilityIDs
+            )
+
+        let mergedCard = GameCard(
+            cardID: .merged,
+            name: "\(leftCard.name) + \(rightCard.name)",
+            health: leftCard.health + rightCard.health,
+            maxHealth:
+                leftCard.maxHealth + rightCard.maxHealth,
+            moves: combinedMoves,
+            abilities: combinedAbilities,
+            componentCount:
+                leftCard.componentCount +
+                rightCard.componentCount,
+            playedTurn: turn,
+            usedAbilityIDs: combinedUsedAbilityIDs
+        )
+
+        opponentBoard[leftIndex] = mergedCard
+        opponentBoard.remove(at: rightIndex)
+
+        energy -= 1
+
+        logEvent(
+            type: .merge,
+            message: "Opponent merged \(leftCard.name) with \(rightCard.name)"
+        )
     }
     
     func playerBoardIndex(
@@ -765,8 +916,14 @@ final class GameViewModel: ObservableObject {
         abilityName: String,
         message: String
     ) {
-        lastAbilityMessages.append(
-            "\(cardName)'s \(abilityName): \(message)"
+        let fullMessage =
+            "\(cardName)'s \(abilityName) \(message)"
+
+        lastAbilityMessages.append(fullMessage)
+
+        logEvent(
+            type: .ability,
+            message: fullMessage
         )
     }
     
@@ -940,6 +1097,28 @@ final class GameViewModel: ObservableObject {
     }
     
     private func removeDefeatedCards() {
+        let defeatedPlayerCards = playerBoard.filter {
+            $0.health <= 0
+        }
+
+        let defeatedOpponentCards = opponentBoard.filter {
+            $0.health <= 0
+        }
+
+        for card in defeatedPlayerCards {
+            logEvent(
+                type: .cardDefeated,
+                message: "Your \(card.name) was defeated"
+            )
+        }
+
+        for card in defeatedOpponentCards {
+            logEvent(
+                type: .cardDefeated,
+                message: "Opponent's \(card.name) was defeated"
+            )
+        }
+
         playerBoard.removeAll {
             $0.health <= 0
         }
@@ -947,7 +1126,29 @@ final class GameViewModel: ObservableObject {
         opponentBoard.removeAll {
             $0.health <= 0
         }
+
+        if let selectedPlayerCard,
+           !playerBoard.contains(where: {
+               $0.id == selectedPlayerCard.id
+           }) {
+            self.selectedPlayerCard = nil
+        }
     }
     
+    private func logEvent(
+        type: TurnEventType,
+        message: String
+    ) {
+        currentTurnEvents.append(
+            TurnEvent(
+                type: type,
+                message: message
+            )
+        )
+    }
     
+    private func finishTurnLog() {
+        lastTurnEvents = currentTurnEvents
+        currentTurnEvents.removeAll()
+    }
 }

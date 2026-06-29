@@ -10,12 +10,24 @@ import SwiftUI
 @MainActor
 struct ContentView: View {
 
-    @StateObject private var viewModel = GameViewModel()
+    @StateObject private var viewModel: GameViewModel
     @Environment(\.dismiss) private var dismiss
 
+    init() {
+        _viewModel = StateObject(
+            wrappedValue: GameViewModel()
+        )
+    }
+
+    init(viewModel: GameViewModel) {
+        _viewModel = StateObject(
+            wrappedValue: viewModel
+        )
+    }
+    
     var body: some View {
         VStack(spacing: 10) {
-            combatLog
+            lastTurnLog
 
             turnStatus
 
@@ -396,8 +408,7 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder
-    private var combatLog: some View {
+    private var lastTurnLog: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Last Turn")
                 .font(.headline)
@@ -405,11 +416,9 @@ struct ContentView: View {
             ScrollView {
                 VStack(
                     alignment: .leading,
-                    spacing: 5
+                    spacing: 6
                 ) {
-                    if viewModel.lastAttackResults.isEmpty &&
-                        viewModel.lastAbilityMessages.isEmpty {
-
+                    if viewModel.lastTurnEvents.isEmpty {
                         Text("No actions yet")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -417,45 +426,24 @@ struct ContentView: View {
                                 maxWidth: .infinity,
                                 alignment: .leading
                             )
-                    }
+                    } else {
+                        ForEach(viewModel.lastTurnEvents) { event in
+                            HStack(alignment: .top, spacing: 6) {
+                                Image(
+                                    systemName: iconName(
+                                        for: event.type
+                                    )
+                                )
+                                .frame(width: 16)
 
-                    ForEach(
-                        viewModel.lastAttackResults
-                    ) { result in
-                        Label {
-                            Text(
-                                "\(result.attackerName) used \(result.moveName) on \(result.targetName) for \(result.damage)"
-                            )
-                        } icon: {
-                            Image(systemName: "burst.fill")
-                                .foregroundStyle(.red)
+                                Text(event.message)
+                                    .font(.caption)
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        alignment: .leading
+                                    )
+                            }
                         }
-                        .font(.caption)
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .leading
-                        )
-                    }
-
-                    ForEach(
-                        Array(
-                            viewModel
-                                .lastAbilityMessages
-                                .enumerated()
-                        ),
-                        id: \.offset
-                    ) { _, message in
-                        Label {
-                            Text(message)
-                        } icon: {
-                            Image(systemName: "sparkles")
-                                .foregroundStyle(.purple)
-                        }
-                        .font(.caption)
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .leading
-                        )
                     }
                 }
             }
@@ -463,7 +451,7 @@ struct ContentView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity)
-        .frame(height: 90)
+        .frame(height: 100)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(
@@ -532,6 +520,30 @@ struct ContentView: View {
                 Image(systemName: "bolt.fill")
                     .foregroundStyle(.yellow)
             }
+        }
+    }
+    
+    private func iconName(
+        for type: TurnEventType
+    ) -> String {
+        switch type {
+        case .cardPlayed:
+            return "rectangle.stack.fill"
+
+        case .attack:
+            return "burst.fill"
+
+        case .ability:
+            return "sparkles"
+
+        case .merge:
+            return "arrow.triangle.merge"
+
+        case .cardDefeated:
+            return "xmark.circle.fill"
+
+        case .healing:
+            return "cross.fill"
         }
     }
 }

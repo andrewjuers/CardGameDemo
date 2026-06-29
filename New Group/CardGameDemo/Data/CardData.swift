@@ -14,6 +14,7 @@ struct CardData {
         // MARK: - 1 Cost Cards
 
         GameCard(
+            cardID: .dog,
             name: "Dog",
             health: 7,
             moves: [
@@ -26,6 +27,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .duck,
             name: "Duck",
             health: 6,
             moves: [
@@ -38,11 +40,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .deer,
             name: "Deer",
             health: 9,
             moves: [
                 Move(
-                    name: "Antler Strike",
+                    name: "Strike",
                     damage: 1,
                     cost: 1
                 )
@@ -52,11 +55,12 @@ struct CardData {
         // MARK: - 2 Cost Cards
 
         GameCard(
+            cardID: .flamingo,
             name: "Flamingo",
             health: 8,
             moves: [
                 Move(
-                    name: "Wing Strike",
+                    name: "Sling",
                     damage: 5,
                     cost: 2
                 )
@@ -64,11 +68,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .hippo,
             name: "Hippo",
             health: 9,
             moves: [
                 Move(
-                    name: "Heavy Bite",
+                    name: "Chomp",
                     damage: 4,
                     cost: 2
                 )
@@ -76,11 +81,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .beetle,
             name: "Beetle",
             health: 6,
             moves: [
                 Move(
-                    name: "Horn Charge",
+                    name: "Charge",
                     damage: 6,
                     cost: 2
                 )
@@ -88,6 +94,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .wolf,
             name: "Wolf",
             health: 7,
             moves: [
@@ -100,11 +107,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .turtle,
             name: "Turtle",
             health: 11,
             moves: [
                 Move(
-                    name: "Shell Bash",
+                    name: "Bash",
                     damage: 3,
                     cost: 2
                 )
@@ -114,11 +122,12 @@ struct CardData {
         // MARK: - 3 Cost Cards
 
         GameCard(
+            cardID: .lion,
             name: "Lion",
             health: 9,
             moves: [
                 Move(
-                    name: "Savage Roar",
+                    name: "Maul",
                     damage: 7,
                     cost: 3
                 )
@@ -126,6 +135,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .rhino,
             name: "Rhino",
             health: 12,
             moves: [
@@ -140,6 +150,7 @@ struct CardData {
         // MARK: - Multiple Move Cards
 
         GameCard(
+            cardID: .snake,
             name: "Snake",
             health: 7,
             moves: [
@@ -157,6 +168,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .eagle,
             name: "Eagle",
             health: 8,
             moves: [
@@ -176,11 +188,12 @@ struct CardData {
         // MARK: - 1 Cost Ability Cards
 
         GameCard(
+            cardID: .armadillo,
             name: "Armadillo",
             health: 7,
             moves: [
                 Move(
-                    name: "Claw",
+                    name: "Slash",
                     damage: 1,
                     cost: 1
                 )
@@ -191,11 +204,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .salamander,
             name: "Salamander",
             health: 5,
             moves: [
                 Move(
-                    name: "Tail Whip",
+                    name: "Whip",
                     damage: 2,
                     cost: 1
                 )
@@ -206,6 +220,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .hedgehog,
             name: "Hedgehog",
             health: 5,
             moves: [
@@ -221,6 +236,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .firefly,
             name: "Firefly",
             health: 4,
             moves: [
@@ -238,11 +254,12 @@ struct CardData {
         // MARK: - 2 Cost Ability Cards
 
         GameCard(
+            cardID: .mole,
             name: "Mole",
             health: 8,
             moves: [
                 Move(
-                    name: "Burrow Strike",
+                    name: "Burrow",
                     damage: 3,
                     cost: 2
                 )
@@ -253,11 +270,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .axolotl,
             name: "Axolotl",
             health: 6,
             moves: [
                 Move(
-                    name: "Water Snap",
+                    name: "Snap",
                     damage: 3,
                     cost: 2
                 )
@@ -268,11 +286,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .boar,
             name: "Boar",
             health: 7,
             moves: [
                 Move(
-                    name: "Tusk Charge",
+                    name: "Ram",
                     damage: 3,
                     cost: 2
                 )
@@ -283,11 +302,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .pufferfish,
             name: "Pufferfish",
             health: 5,
             moves: [
                 Move(
-                    name: "Spine Shot",
+                    name: "Needles",
                     damage: 4,
                     cost: 2
                 )
@@ -300,11 +320,12 @@ struct CardData {
         // MARK: - 3 Cost Ability Cards
 
         GameCard(
+            cardID: .pangolin,
             name: "Pangolin",
             health: 10,
             moves: [
                 Move(
-                    name: "Rolling Slam",
+                    name: "Slam",
                     damage: 4,
                     cost: 3
                 )
@@ -315,11 +336,12 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .moose,
             name: "Moose",
             health: 9,
             moves: [
                 Move(
-                    name: "Antler Rush",
+                    name: "Rush",
                     damage: 5,
                     cost: 3
                 )
@@ -330,7 +352,8 @@ struct CardData {
         ),
 
         GameCard(
-            name: "Wolverine",
+            cardID: .badger,
+            name: "Badger",
             health: 8,
             moves: [
                 Move(
@@ -345,6 +368,7 @@ struct CardData {
         ),
 
         GameCard(
+            cardID: .scorpion,
             name: "Scorpion",
             health: 7,
             moves: [
