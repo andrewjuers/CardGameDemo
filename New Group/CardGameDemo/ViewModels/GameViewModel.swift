@@ -472,6 +472,15 @@ final class GameViewModel: ObservableObject {
         guard let selectedCard = selectedPlayerCard else {
             return
         }
+        
+        let moveAlreadyPlanned = plannedPlayerAttacks.contains {
+            $0.attackerID == selectedCard.id &&
+            $0.move.id == move.id
+        }
+
+        guard !moveAlreadyPlanned else {
+            return
+        }
 
         guard playerBoard.contains(
             where: { $0.id == selectedCard.id }
@@ -528,8 +537,24 @@ final class GameViewModel: ObservableObject {
             }
 
             let target = opponentBoardSnapshot[attackerPosition]
-
             let attacker = playerBoardSnapshot[attackerPosition]
+
+            let hunterBonus =
+                AbilityResolver.hunterBonusDamage(
+                    from: attacker,
+                    against: target
+                )
+
+            let finalDamage =
+                attack.move.damage + hunterBonus
+
+            if hunterBonus > 0 {
+                logAbility(
+                    cardName: attacker.name,
+                    abilityName: "Hunter",
+                    message: "added \(hunterBonus) damage against \(target.name)"
+                )
+            }
 
             results.append(
                 AttackResult(
@@ -538,7 +563,7 @@ final class GameViewModel: ObservableObject {
                     attackerName: attacker.name,
                     targetName: target.name,
                     moveName: attack.move.name,
-                    damage: attack.move.damage,
+                    damage: finalDamage,
                     isPlayerAction: true,
                     boardPosition: attackerPosition
                 )
@@ -557,8 +582,24 @@ final class GameViewModel: ObservableObject {
             }
 
             let target = playerBoardSnapshot[attackerPosition]
-
             let attacker = opponentBoardSnapshot[attackerPosition]
+
+            let hunterBonus =
+                AbilityResolver.hunterBonusDamage(
+                    from: attacker,
+                    against: target
+                )
+
+            let finalDamage =
+                attack.move.damage + hunterBonus
+
+            if hunterBonus > 0 {
+                logAbility(
+                    cardName: attacker.name,
+                    abilityName: "Hunter",
+                    message: "added \(hunterBonus) damage against \(target.name)"
+                )
+            }
 
             results.append(
                 AttackResult(
@@ -567,7 +608,7 @@ final class GameViewModel: ObservableObject {
                     attackerName: attacker.name,
                     targetName: target.name,
                     moveName: attack.move.name,
-                    damage: attack.move.damage,
+                    damage: finalDamage,
                     isPlayerAction: false,
                     boardPosition: attackerPosition
                 )
@@ -583,16 +624,36 @@ final class GameViewModel: ObservableObject {
         var totalDamage: [UUID: Int] = [:]
 
         for result in results {
-            if let target = playerBoard.first(
+            if let targetIndex = playerBoard.firstIndex(
                 where: { $0.id == result.targetID }
             ) {
+                var target = playerBoard[targetIndex]
+
+                if let shield =
+                    AbilityResolver.unusedShieldAbility(
+                        for: target
+                    ) {
+
+                    target.usedAbilityIDs.insert(shield.id)
+                    playerBoard[targetIndex] = target
+
+                    logAbility(
+                        cardName: target.name,
+                        abilityName: shield.name,
+                        message: "negated \(result.damage) attack damage"
+                    )
+
+                    continue
+                }
+
                 let adjustedDamage =
                     AbilityResolver.adjustedAttackDamage(
                         result.damage,
                         against: target
                     )
 
-                let blockedDamage = result.damage - adjustedDamage
+                let blockedDamage =
+                    result.damage - adjustedDamage
 
                 if blockedDamage > 0 {
                     logAbility(
@@ -603,14 +664,45 @@ final class GameViewModel: ObservableObject {
                 }
 
                 totalDamage[result.targetID, default: 0] += adjustedDamage
-            } else if let target = opponentBoard.first(
+
+            } else if let targetIndex = opponentBoard.firstIndex(
                 where: { $0.id == result.targetID }
             ) {
+                var target = opponentBoard[targetIndex]
+
+                if let shield =
+                    AbilityResolver.unusedShieldAbility(
+                        for: target
+                    ) {
+
+                    target.usedAbilityIDs.insert(shield.id)
+                    opponentBoard[targetIndex] = target
+
+                    logAbility(
+                        cardName: target.name,
+                        abilityName: shield.name,
+                        message: "negated \(result.damage) attack damage"
+                    )
+
+                    continue
+                }
+
                 let adjustedDamage =
                     AbilityResolver.adjustedAttackDamage(
                         result.damage,
                         against: target
                     )
+
+                let blockedDamage =
+                    result.damage - adjustedDamage
+
+                if blockedDamage > 0 {
+                    logAbility(
+                        cardName: target.name,
+                        abilityName: "Hard Shell",
+                        message: "blocked \(blockedDamage) damage"
+                    )
+                }
 
                 totalDamage[result.targetID, default: 0] += adjustedDamage
             }
@@ -618,19 +710,16 @@ final class GameViewModel: ObservableObject {
 
         for index in playerBoard.indices {
             let cardID = playerBoard[index].id
-            playerBoard[index].health -= totalDamage[cardID, default: 0]
+
+            playerBoard[index].health -=
+                totalDamage[cardID, default: 0]
         }
 
         for index in opponentBoard.indices {
             let cardID = opponentBoard[index].id
-            opponentBoard[index].health -= totalDamage[cardID, default: 0]
-        }
 
-        if let selectedPlayerCard,
-           !playerBoard.contains(where: {
-               $0.id == selectedPlayerCard.id
-           }) {
-            self.selectedPlayerCard = nil
+            opponentBoard[index].health -=
+                totalDamage[cardID, default: 0]
         }
     }
     
@@ -644,12 +733,17 @@ final class GameViewModel: ObservableObject {
             return false
         }
 
-        guard energy >= 1 else {
-            return false
-        }
-
         let leftCard = playerBoard[leftIndex]
         let rightCard = playerBoard[rightIndex]
+        
+        let cost = mergeCost(
+            leftCard,
+            rightCard
+        )
+
+        guard energy >= cost else {
+            return false
+        }
 
         guard let leftPlayedTurn = leftCard.playedTurn,
               let rightPlayedTurn = rightCard.playedTurn else {
@@ -701,6 +795,11 @@ final class GameViewModel: ObservableObject {
             leftCard.usedAbilityIDs.union(
                 rightCard.usedAbilityIDs
             )
+        
+        let mergeEnergyCost = mergeCost(
+            leftCard,
+            rightCard
+        )
 
         let mergedCard = GameCard(
             cardID: .merged,
@@ -720,12 +819,28 @@ final class GameViewModel: ObservableObject {
         playerBoard[leftIndex] = mergedCard
         playerBoard.remove(at: rightIndex)
 
-        energy -= 1
+        energy -= mergeEnergyCost
         hasTakenAction = true
         selectedPlayerCard = mergedCard
         logEvent(
             type: .merge,
             message: "You merged \(leftCard.name) with \(rightCard.name)"
+        )
+    }
+    
+    func playerMergeCost(
+        at leftIndex: Int
+    ) -> Int? {
+        let rightIndex = leftIndex + 1
+
+        guard playerBoard.indices.contains(leftIndex),
+              playerBoard.indices.contains(rightIndex) else {
+            return nil
+        }
+
+        return mergeCost(
+            playerBoard[leftIndex],
+            playerBoard[rightIndex]
         )
     }
     
@@ -754,6 +869,15 @@ final class GameViewModel: ObservableObject {
 
         guard leftPlayedTurn < turn,
               rightPlayedTurn < turn else {
+            return false
+        }
+        
+        let cost = mergeCost(
+            leftCard,
+            rightCard
+        )
+
+        guard energy >= cost else {
             return false
         }
 
@@ -807,7 +931,12 @@ final class GameViewModel: ObservableObject {
         opponentBoard[leftIndex] = mergedCard
         opponentBoard.remove(at: rightIndex)
 
-        energy -= 1
+        let mergeEnergyCost = mergeCost(
+            leftCard,
+            rightCard
+        )
+
+        energy -= mergeEnergyCost
 
         logEvent(
             type: .merge,
@@ -931,8 +1060,18 @@ final class GameViewModel: ObservableObject {
         _ results: [AttackResult]
     ) {
         applyAttackResults(results)
+        applySplash(results)
+        applySecondWind()
+
         applySpikes(results)
+        applySecondWind()
+
+        applyLastStand()
+
         applyDeathBurst()
+        applySecondWind()
+        applyLastStand()
+
         removeDefeatedCards()
         applyEndTurnHealing()
     }
@@ -1004,11 +1143,32 @@ final class GameViewModel: ObservableObject {
                 continue
             }
 
+            guard let attacker =
+                    playerBoard.first(where: {
+                        $0.id == result.attackerID
+                    })
+                    ??
+                    opponentBoard.first(where: {
+                        $0.id == result.attackerID
+                    }) else {
+                continue
+            }
+
             let damage = AbilityResolver.retaliationDamage(
                 from: defender
             )
 
             guard damage > 0 else {
+                continue
+            }
+
+            if AbilityResolver.isImmune(attacker) {
+                logAbility(
+                    cardName: attacker.name,
+                    abilityName: "Immune",
+                    message: "ignored Spikes"
+                )
+
                 continue
             }
 
@@ -1058,6 +1218,16 @@ final class GameViewModel: ObservableObject {
 
             let target = opponentSnapshot[index]
 
+            if AbilityResolver.isImmune(target) {
+                logAbility(
+                    cardName: target.name,
+                    abilityName: "Immune",
+                    message: "ignored Death Burst"
+                )
+
+                continue
+            }
+
             damageToOpponentCards[target.id, default: 0] += burstDamage
         }
 
@@ -1079,6 +1249,16 @@ final class GameViewModel: ObservableObject {
             }
 
             let target = playerSnapshot[index]
+
+            if AbilityResolver.isImmune(target) {
+                logAbility(
+                    cardName: target.name,
+                    abilityName: "Immune",
+                    message: "ignored Death Burst"
+                )
+
+                continue
+            }
 
             damageToPlayerCards[target.id, default: 0] += burstDamage
         }
@@ -1150,5 +1330,225 @@ final class GameViewModel: ObservableObject {
     private func finishTurnLog() {
         lastTurnEvents = currentTurnEvents
         currentTurnEvents.removeAll()
+    }
+    
+    private func mergeCost(
+        _ firstCard: GameCard,
+        _ secondCard: GameCard
+    ) -> Int {
+        firstCard.componentCount +
+        secondCard.componentCount - 1
+    }
+    
+    private func applyLastStand() {
+        for index in playerBoard.indices {
+            applyLastStand(
+                to: &playerBoard[index]
+            )
+        }
+
+        for index in opponentBoard.indices {
+            applyLastStand(
+                to: &opponentBoard[index]
+            )
+        }
+    }
+    
+    private func applyLastStand(
+        to card: inout GameCard
+    ) {
+        guard card.health <= 0 else {
+            return
+        }
+
+        guard let ability =
+                AbilityResolver.unusedLastStandAbility(
+                    for: card
+                ) else {
+            return
+        }
+
+        guard case .surviveFatalDamage(
+            let remainingHealth
+        ) = ability.effect else {
+            return
+        }
+
+        card.health = remainingHealth
+        card.usedAbilityIDs.insert(ability.id)
+
+        logAbility(
+            cardName: card.name,
+            abilityName: ability.name,
+            message: "survived with \(remainingHealth) health"
+        )
+    }
+    
+    private func applySecondWind() {
+        for index in playerBoard.indices {
+            applySecondWind(
+                to: &playerBoard[index]
+            )
+        }
+
+        for index in opponentBoard.indices {
+            applySecondWind(
+                to: &opponentBoard[index]
+            )
+        }
+    }
+    
+    private func applySecondWind(
+        to card: inout GameCard
+    ) {
+        guard card.health > 0 else {
+            return
+        }
+
+        guard card.health * 2 < card.maxHealth else {
+            return
+        }
+
+        guard let ability =
+                AbilityResolver.unusedSecondWindAbility(
+                    for: card
+                ) else {
+            return
+        }
+
+        guard case .healFirstTimeBelowHalf(
+            let percent
+        ) = ability.effect else {
+            return
+        }
+
+        let requestedHealing = Int(
+            ceil(
+                Double(card.maxHealth) * percent
+            )
+        )
+
+        let oldHealth = card.health
+
+        card.health = min(
+            card.health + requestedHealing,
+            card.maxHealth
+        )
+
+        let actualHealing = card.health - oldHealth
+
+        card.usedAbilityIDs.insert(ability.id)
+
+        logAbility(
+            cardName: card.name,
+            abilityName: ability.name,
+            message: "healed \(actualHealing) health"
+        )
+    }
+    
+    private func applySplash(
+        _ results: [AttackResult]
+    ) {
+        var damageToPlayerCards: [UUID: Int] = [:]
+        var damageToOpponentCards: [UUID: Int] = [:]
+
+        for result in results {
+            let attacker: GameCard?
+
+            if result.isPlayerAction {
+                attacker = playerBoard.first {
+                    $0.id == result.attackerID
+                }
+            } else {
+                attacker = opponentBoard.first {
+                    $0.id == result.attackerID
+                }
+            }
+
+            guard let attacker else {
+                continue
+            }
+
+            let splashDamage = AbilityResolver.splashDamage(
+                from: attacker
+            )
+
+            guard splashDamage > 0 else {
+                continue
+            }
+
+            let adjacentPositions = [
+                result.boardPosition - 1,
+                result.boardPosition + 1
+            ]
+
+            if result.isPlayerAction {
+                for position in adjacentPositions {
+                    guard opponentBoard.indices.contains(position) else {
+                        continue
+                    }
+
+                    let target = opponentBoard[position]
+
+                    if AbilityResolver.isImmune(target) {
+                        logAbility(
+                            cardName: target.name,
+                            abilityName: "Immune",
+                            message: "ignored Splash"
+                        )
+
+                        continue
+                    }
+
+                    damageToOpponentCards[target.id, default: 0] += splashDamage
+
+                    logAbility(
+                        cardName: attacker.name,
+                        abilityName: "Splash",
+                        message: "dealt \(splashDamage) damage to \(target.name)"
+                    )
+                }
+            } else {
+                for position in adjacentPositions {
+                    guard playerBoard.indices.contains(position) else {
+                        continue
+                    }
+
+                    let target = playerBoard[position]
+
+                    if AbilityResolver.isImmune(target) {
+                        logAbility(
+                            cardName: target.name,
+                            abilityName: "Immune",
+                            message: "ignored Splash"
+                        )
+
+                        continue
+                    }
+
+                    damageToPlayerCards[target.id, default: 0] += splashDamage
+
+                    logAbility(
+                        cardName: attacker.name,
+                        abilityName: "Splash",
+                        message: "dealt \(splashDamage) damage to \(target.name)"
+                    )
+                }
+            }
+        }
+
+        for index in playerBoard.indices {
+            let cardID = playerBoard[index].id
+
+            playerBoard[index].health -=
+                damageToPlayerCards[cardID, default: 0]
+        }
+
+        for index in opponentBoard.indices {
+            let cardID = opponentBoard[index].id
+
+            opponentBoard[index].health -=
+                damageToOpponentCards[cardID, default: 0]
+        }
     }
 }

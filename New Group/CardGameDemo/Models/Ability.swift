@@ -14,9 +14,12 @@ enum AbilityEffect {
     case retaliate(amount: Int)
     case damageOnDefeat(amount: Int)
 
-    // Future one-time abilities
     case surviveFatalDamage(remainingHealth: Int)
-    case healBelowHalf(amount: Int)
+    case ignoreAllAbilities
+    case negateFirstAttack
+    case bonusDamagePerMerge(amount: Int)
+    case healFirstTimeBelowHalf(percent: Double)
+    case splashDamage(amount: Int)
 }
 
 struct Ability: Identifiable {

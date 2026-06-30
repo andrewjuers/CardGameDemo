@@ -35,5 +35,12 @@ enum CardID: String, Codable, CaseIterable, Hashable {
     case badger
     case scorpion
     
+    case possum
+    case rolyPoly
+    case roach
+    case coyote
+    case goat
+    case octopus
+    
     case merged
 }

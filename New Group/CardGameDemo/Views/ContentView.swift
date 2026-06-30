@@ -240,12 +240,18 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
 
             ForEach(card.moves) { move in
+                let alreadyUsed =
+                    viewModel.plannedMoveCount(
+                        for: card,
+                        move: move
+                    ) > 0
+
                 HStack(spacing: 6) {
                     Button {
                         viewModel.useMove(move)
                     } label: {
                         HStack(spacing: 8) {
-                            Text(move.name)
+                            Text(alreadyUsed ? "\(move.name) ✓" : move.name)
                                 .fontWeight(.semibold)
                                 .lineLimit(1)
 
@@ -271,8 +277,16 @@ struct ContentView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel.energy < move.cost)
-                    .opacity(viewModel.energy < move.cost ? 0.45 : 1)
+                    .disabled(
+                        alreadyUsed ||
+                        viewModel.energy < move.cost
+                    )
+                    .opacity(
+                        alreadyUsed ||
+                        viewModel.energy < move.cost
+                        ? 0.45
+                        : 1
+                    )
                 }
             }
             if let cardIndex =
@@ -296,7 +310,11 @@ struct ContentView: View {
 
                             Spacer()
 
-                            energySymbols(for: 1)
+                            if let cost = viewModel.playerMergeCost(
+                                at: cardIndex
+                            ) {
+                                energySymbols(for: cost)
+                            }
                         }
                         .padding(10)
                         .background(

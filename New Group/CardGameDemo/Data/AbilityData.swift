@@ -37,4 +37,66 @@ struct AbilityData {
         effect: .damageOnDefeat(amount: 2),
         isOneTime: true
     )
+    
+    static var lastStand: Ability {
+        Ability(
+            name: "Last Stand",
+            description: "The first time this card would be defeated, it survives with 1 health.",
+            effect: .surviveFatalDamage(
+                remainingHealth: 1
+            ),
+            isOneTime: true
+        )
+    }
+
+    static var immune: Ability {
+        Ability(
+            name: "Immune",
+            description: "This card ignores all ability effects, including friendly abilities.",
+            effect: .ignoreAllAbilities,
+            isOneTime: false
+        )
+    }
+
+    static var shield: Ability {
+        Ability(
+            name: "Shield",
+            description: "Negate all damage from the first attack that hits this card.",
+            effect: .negateFirstAttack,
+            isOneTime: true
+        )
+    }
+
+    static var hunter: Ability {
+        Ability(
+            name: "Hunter",
+            description: "Attacks deal 2 additional damage for each card merged into the opposing card.",
+            effect: .bonusDamagePerMerge(
+                amount: 2
+            ),
+            isOneTime: false
+        )
+    }
+
+    static var secondWind: Ability {
+        Ability(
+            name: "Second Wind",
+            description: "The first time this card falls below half health, heal 50% of its maximum health.",
+            effect: .healFirstTimeBelowHalf(
+                percent: 0.5
+            ),
+            isOneTime: true
+        )
+    }
+
+    static var splash: Ability {
+        Ability(
+            name: "Splash",
+            description: "Whenever this card attacks, deal 1 damage to enemy cards adjacent to the target.",
+            effect: .splashDamage(
+                amount: 1
+            ),
+            isOneTime: false
+        )
+    }
 }

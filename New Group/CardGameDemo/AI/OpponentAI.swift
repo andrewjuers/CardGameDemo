@@ -158,6 +158,19 @@ struct OpponentAI {
                     rightCard.componentCount <= 3 else {
                 continue
             }
+            
+            let mergeCost =
+                leftCard.componentCount +
+                rightCard.componentCount - 1
+
+            guard leftCard.componentCount +
+                    rightCard.componentCount <= 3 else {
+                continue
+            }
+
+            guard energy >= mergeCost else {
+                continue
+            }
 
             let leftThreat = estimatedIncomingDamage(
                 at: leftIndex,

@@ -87,7 +87,7 @@ struct CardData {
             moves: [
                 Move(
                     name: "Charge",
-                    damage: 6,
+                    damage: 5,
                     cost: 2
                 )
             ]
@@ -137,7 +137,7 @@ struct CardData {
         GameCard(
             cardID: .rhino,
             name: "Rhino",
-            health: 12,
+            health: 11,
             moves: [
                 Move(
                     name: "Stampede",
@@ -156,7 +156,7 @@ struct CardData {
             moves: [
                 Move(
                     name: "Bite",
-                    damage: 3,
+                    damage: 2,
                     cost: 1
                 ),
                 Move(
@@ -174,7 +174,7 @@ struct CardData {
             moves: [
                 Move(
                     name: "Claw",
-                    damage: 3,
+                    damage: 2,
                     cost: 1
                 ),
                 Move(
@@ -373,7 +373,7 @@ struct CardData {
             health: 7,
             moves: [
                 Move(
-                    name: "Stinger",
+                    name: "Sting",
                     damage: 6,
                     cost: 3
                 )
@@ -381,6 +381,119 @@ struct CardData {
             abilities: [
                 AbilityData.deathBurst
             ]
-        )
+        ),
+        
+        // More abilities
+        GameCard(
+            cardID: .possum,
+            name: "Possum",
+            health: 4,
+            moves: [
+                Move(
+                    name: "Scratch",
+                    damage: 1,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.lastStand
+            ]
+        ),
+        
+        GameCard(
+            cardID: .rolyPoly,
+            name: "Roly Poly",
+            health: 4,
+            moves: [
+                Move(
+                    name: "Roll",
+                    damage: 1,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.shield
+            ]
+        ),
+        
+        GameCard(
+            cardID: .roach,
+            name: "Roach",
+            health: 6,
+            moves: [
+                Move(
+                    name: "Scuttle",
+                    damage: 2,
+                    cost: 1
+                )
+            ],
+            abilities: [
+                AbilityData.immune
+            ]
+        ),
+        
+        GameCard(
+            cardID: .coyote,
+            name: "Coyote",
+            health: 7,
+            moves: [
+                Move(
+                    name: "Nip",
+                    damage: 2,
+                    cost: 1
+                ),
+                Move(
+                    name: "Pounce",
+                    damage: 4,
+                    cost: 2
+                )
+            ],
+            abilities: [
+                AbilityData.hunter
+            ]
+        ),
+        
+        GameCard(
+            cardID: .goat,
+            name: "Goat",
+            health: 6,
+            moves: [
+                Move(
+                    name: "Headbutt",
+                    damage: 2,
+                    cost: 1
+                ),
+                Move(
+                    name: "Megahorn",
+                    damage: 4,
+                    cost: 3
+                )
+            ],
+            abilities: [
+                AbilityData.secondWind
+            ]
+        ),
+        
+        GameCard(
+            cardID: .octopus,
+            name: "Octopus",
+            health: 7,
+            moves: [
+                Move(
+                    name: "Tentacle Slap",
+                    damage: 1,
+                    cost: 1
+                ),
+                Move(
+                    name: "Ink Strike",
+                    damage: 3,
+                    cost: 2
+                )
+            ],
+            abilities: [
+                AbilityData.splash
+            ]
+        ),
+        
     ]
 }
