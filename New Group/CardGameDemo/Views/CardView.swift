@@ -10,7 +10,7 @@ import SwiftUI
 
 struct CardView: View {
     
-    @State private var selectedAbility: Ability?
+    @State private var showsAbilityList = false
     
     let card: GameCard
     let isSelected: Bool
@@ -27,7 +27,11 @@ struct CardView: View {
                 .font(.headline)
                 .fontWeight(.bold)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .center
+                )
 
             abilitySection
 
@@ -46,6 +50,9 @@ struct CardView: View {
         .overlay(alignment: .topTrailing) {
             queuedMoveIndicator
         }
+        .clipShape(
+            RoundedRectangle(cornerRadius: 16)
+        )
         .shadow(
             color: Color.black.opacity(0.08),
             radius: 4,
@@ -70,17 +77,34 @@ struct CardView: View {
 
     @ViewBuilder
     private var abilitySection: some View {
-        if !card.abilities.isEmpty {
-            VStack(spacing: 4) {
-                ForEach(card.abilities.prefix(2)) { ability in
-                    abilityBadge(ability)
-                }
+        if card.abilities.count == 1,
+           let ability = card.abilities.first {
 
-                if card.abilities.count > 2 {
-                    Text("+\(card.abilities.count - 2) abilities")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+            Button {
+                showsAbilityList = true
+            } label: {
+                abilityBadgeLabel(
+                    title: ability.name
+                )
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showsAbilityList) {
+                abilityList
+                    .presentationCompactAdaptation(.popover)
+            }
+
+        } else if card.abilities.count > 1 {
+            Button {
+                showsAbilityList = true
+            } label: {
+                abilityBadgeLabel(
+                    title: "Abilities \(card.abilities.count)"
+                )
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showsAbilityList) {
+                abilityList
+                    .presentationCompactAdaptation(.popover)
             }
         }
     }
@@ -102,17 +126,17 @@ struct CardView: View {
 
                     Spacer(minLength: 3)
 
-                    HStack(spacing: 3) {
-                        Image(systemName: "burst.fill")
-                            .foregroundStyle(.red)
-
-                        Text("\(move.damage)")
-                            .fontWeight(.semibold)
-
+                    HStack(spacing: 4) {
                         energySymbols(
                             for: move.cost,
                             compact: usesCompactMoveLayout
                         )
+
+                        Text("\(move.damage)")
+                            .fontWeight(.semibold)
+
+                        Image(systemName: "burst.fill")
+                            .foregroundStyle(.red)
                     }
                     .font(
                         .system(
@@ -192,66 +216,76 @@ struct CardView: View {
         .fixedSize()
     }
     
-    private func abilityBadge(
-        _ ability: Ability
+    private func abilityBadgeLabel(
+        title: String
     ) -> some View {
-        Button {
-            selectedAbility = ability
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "sparkles")
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles")
 
-                Text(ability.name)
-                    .lineLimit(1)
-            }
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 4)
-            .foregroundStyle(.purple)
-            .background(
-                Capsule()
-                    .fill(Color.purple.opacity(0.12))
-            )
-            .overlay {
-                Capsule()
-                    .stroke(Color.purple.opacity(0.4))
-            }
+            Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
-        .buttonStyle(.plain)
-        .popover(item: $selectedAbility) { ability in
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(.purple)
+        .font(.caption2)
+        .fontWeight(.semibold)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .foregroundStyle(.purple)
+        .background(
+            Capsule()
+                .fill(Color.purple.opacity(0.12))
+        )
+        .overlay {
+            Capsule()
+                .stroke(Color.purple.opacity(0.4))
+        }
+    }
+    
+    private var abilityList: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(card.name)
+                    .font(.headline)
 
-                    Text(ability.name)
-                        .font(.headline)
-                }
+                ForEach(card.abilities, id: \.id) { ability in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(.purple)
 
-                Text(ability.description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                            Text(ability.name)
+                                .fontWeight(.semibold)
 
-                if ability.isOneTime {
-                    Label(
-                        "Triggers once",
-                        systemImage: "1.circle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                } else {
-                    Label(
-                        "Automatic ability",
-                        systemImage: "arrow.triangle.2.circlepath"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.blue)
+                            Spacer()
+
+                            if ability.isOneTime {
+                                Text(
+                                    card.usedAbilityIDs.contains(ability.id)
+                                    ? "Used"
+                                    : "Once"
+                                )
+                                .font(.caption2)
+                                .foregroundStyle(
+                                    card.usedAbilityIDs.contains(ability.id)
+                                    ? Color.secondary
+                                    : Color.orange
+                                )
+                            }
+                        }
+
+                        Text(ability.description)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if ability.id != card.abilities.last?.id {
+                        Divider()
+                    }
                 }
             }
             .padding()
-            .frame(width: 250)
-            .presentationCompactAdaptation(.popover)
         }
+        .frame(width: 280)
+        .frame(maxHeight: 350)
     }
 }

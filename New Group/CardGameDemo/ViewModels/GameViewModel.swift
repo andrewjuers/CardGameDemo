@@ -349,7 +349,9 @@ final class GameViewModel: ObservableObject {
             drawOpponentCard()
 
             hasTakenAction = false
-            isResolvingTurn = false
+            defer {
+                isResolvingTurn = false
+            }
 
             saveTurnStart()
         }
@@ -1222,13 +1224,19 @@ final class GameViewModel: ObservableObject {
                 logAbility(
                     cardName: target.name,
                     abilityName: "Immune",
-                    message: "ignored Death Burst"
+                    message: "ignored Death Burst from \(card.name)"
                 )
 
                 continue
             }
 
             damageToOpponentCards[target.id, default: 0] += burstDamage
+
+            logAbility(
+                cardName: card.name,
+                abilityName: "Death Burst",
+                message: "dealt \(burstDamage) damage to \(target.name)"
+            )
         }
 
         for (index, card) in opponentSnapshot.enumerated() {
@@ -1254,13 +1262,19 @@ final class GameViewModel: ObservableObject {
                 logAbility(
                     cardName: target.name,
                     abilityName: "Immune",
-                    message: "ignored Death Burst"
+                    message: "ignored Death Burst from \(card.name)"
                 )
 
                 continue
             }
 
             damageToPlayerCards[target.id, default: 0] += burstDamage
+
+            logAbility(
+                cardName: card.name,
+                abilityName: "Death Burst",
+                message: "dealt \(burstDamage) damage to \(target.name)"
+            )
         }
 
         for index in playerBoard.indices {

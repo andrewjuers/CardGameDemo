@@ -83,11 +83,11 @@ struct CardData {
         GameCard(
             cardID: .beetle,
             name: "Beetle",
-            health: 6,
+            health: 5,
             moves: [
                 Move(
                     name: "Charge",
-                    damage: 5,
+                    damage: 6,
                     cost: 2
                 )
             ]
@@ -152,11 +152,11 @@ struct CardData {
         GameCard(
             cardID: .snake,
             name: "Snake",
-            health: 7,
+            health: 6,
             moves: [
                 Move(
                     name: "Bite",
-                    damage: 2,
+                    damage: 1,
                     cost: 1
                 ),
                 Move(
@@ -322,7 +322,7 @@ struct CardData {
         GameCard(
             cardID: .pangolin,
             name: "Pangolin",
-            health: 10,
+            health: 9,
             moves: [
                 Move(
                     name: "Slam",
@@ -338,7 +338,7 @@ struct CardData {
         GameCard(
             cardID: .moose,
             name: "Moose",
-            health: 9,
+            health: 8,
             moves: [
                 Move(
                     name: "Rush",
@@ -435,16 +435,16 @@ struct CardData {
         GameCard(
             cardID: .coyote,
             name: "Coyote",
-            health: 7,
+            health: 6,
             moves: [
                 Move(
                     name: "Nip",
-                    damage: 2,
+                    damage: 1,
                     cost: 1
                 ),
                 Move(
                     name: "Pounce",
-                    damage: 4,
+                    damage: 3,
                     cost: 2
                 )
             ],

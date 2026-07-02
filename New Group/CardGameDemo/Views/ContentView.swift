@@ -37,24 +37,12 @@ struct ContentView: View {
 
             playerHand
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 24)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 10)
         .background(Color(.systemGroupedBackground))
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .top, spacing: 0) {
             topHeader
-        }
-        .alert(item: $viewModel.gameResult) { result in
-            Alert(
-                title: Text(result.title),
-                message: Text(result.message),
-                dismissButton: .default(
-                    Text("New Game"),
-                    action: {
-                        viewModel.startNewGame()
-                    }
-                )
-            )
         }
     }
     
@@ -159,7 +147,7 @@ struct ContentView: View {
     }
 
     private var gameBoard: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
 
             boardRow(
                 cards: viewModel.opponentBoard,
@@ -175,7 +163,7 @@ struct ContentView: View {
             )
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 
     private func boardRow(
@@ -256,18 +244,19 @@ struct ContentView: View {
                                 .lineLimit(1)
 
                             Spacer()
+                            
+                            energySymbols(for: move.cost)
+                                .font(.subheadline)
+                                .font(.subheadline)
 
                             HStack(spacing: 3) {
+                                Text("\(move.damage)")
+                                
                                 Image(systemName: "burst.fill")
                                     .foregroundStyle(.red)
-
-                                Text("\(move.damage)")
                             }
                             .font(.subheadline)
                             .fontWeight(.semibold)
-
-                            energySymbols(for: move.cost)
-                                .font(.subheadline)
                         }
                         .padding(10)
                         .frame(minWidth: 220)
@@ -354,8 +343,11 @@ struct ContentView: View {
             isSelected: isSelected,
             showsQueuedMove: viewModel.hasPlannedAttack(for: card),
             width: nil,
-            height: 145,
+            height: 175,
             usesCompactMoveLayout: true
+        )
+        .clipShape(
+            RoundedRectangle(cornerRadius: 16)
         )
         .scaleEffect(
             viewModel.attackingCardID == card.id
@@ -393,7 +385,7 @@ struct ContentView: View {
                 )
             )
             .frame(maxWidth: .infinity)
-            .frame(height: 145)
+            .frame(height: 175)
             .overlay {
                 Image(systemName: "plus")
                     .font(.title2)

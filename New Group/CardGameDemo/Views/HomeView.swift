@@ -38,6 +38,25 @@ struct HomeView: View {
                         systemImage: "rectangle.stack.badge.plus"
                     )
                 }
+                
+                NavigationLink {
+                    TutorialView()
+                } label: {
+                    Label(
+                        "How to Play",
+                        systemImage: "questionmark.circle.fill"
+                    )
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        Color(.secondarySystemBackground)
+                    )
+                    .foregroundStyle(.primary)
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: 14)
+                    )
+                }
 
                 Spacer()
             }
